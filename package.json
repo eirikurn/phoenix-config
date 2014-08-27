@@ -1,0 +1,23 @@
+{
+  "name": "phoenix-config",
+  "version": "0.0.0",
+  "description": "Config for Phoenix window manager for mac.",
+  "main": "build/.phoenix.js",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "gulp": "^3.8.7",
+    "gulp-util": "^3.0.0",
+    "gulp-coffee": "^2.1.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eirikurn/phoenix-config.git"
+  },
+  "author": "Eirikur Nilsson <eirikur@nilsson.is>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/eirikurn/phoenix-config/issues"
+  },
+  "homepage": "https://github.com/eirikurn/phoenix-config"
+}
