@@ -243,6 +243,48 @@ Move the current window to the next / previous screen
       win = Window.focusedWindow()
       win.setGrid win.getGrid(), win.screen().previousScreen()
 
+Move the current window to a grid cell
+
+    moveToGrid = (x, y) ->
+      win = Window.focusedWindow()
+      screens = getScreensLeftToRightTopToBottom(win)
+      targetScreen = screens[Math.floor(x / 2)]
+      x %= 2
+      win.setGrid({x: x, y: y, width: 1, height: 1}, targetScreen)
+
+    getScreensLeftToRightTopToBottom = (win) ->
+      # Enumerate all available screens
+      firstScreen = win.screen()
+      curScreen = firstScreen.nextScreen()
+      screens = [curScreen]
+      while curScreen != firstScreen
+        curScreen = curScreen.nextScreen()
+        screens.push(curScreen)
+
+      # Sort screens by X position, Y position second.
+      _.chain(screens)
+        .map (screen) ->
+          {x, y} = screen.frameWithoutDockOrMenu()
+          {x, y, screen}
+        .sortBy 'y'
+        .sortBy 'x'
+        .pluck 'screen'
+        .value()
+
+    focusGrid = (x, y) ->
+      windows = Window.visibleWindowsMostRecentFirst()
+      windows = windows.filter (win) ->
+        frame = win.getGrid()
+        frame.x == x && frame.y == y
+
+      isCellFocused = _.map(windows, (w)-> w.info()).indexOf(Window.focusedWindow().info()) > -1
+
+      if isCellFocused
+        windows[windows.length - 1].focusWindow()
+      else if windows.length
+        windows[0].focusWindow()
+
+
 Move the current window by one column
 
     moveWindowLeftOneColumn = ->
@@ -420,6 +462,7 @@ readable.
 Mash is **Cmd** + **Alt/Opt** + **Ctrl** pressed together.
 
     mash = 'cmd+alt+ctrl'.split '+'
+    focusMash = 'shift+cmd+alt+ctrl'.split '+'
 
 Transpose/Swap Windows
 
@@ -474,11 +517,6 @@ Switch layouts using the predefined [Layout config](#layout-config)
     key_binding '2',     mash, -> switchLayout 'Finder and Terminal'
     key_binding '1',     mash, -> switchLayout 'Finder and Browser'
 
-Move window between screens
-
-    # key_binding 'N',     mash, -> moveWindowToNextScreen()
-    # key_binding 'P',     mash, -> moveWindowToPreviousScreen()
-
 Setting the grid size
 
     key_binding '=',     mash, -> changeGridWidth +1
@@ -493,19 +531,23 @@ Snap current window or all windows to the grid
 
 Move the current window around the grid
 
-    # key_binding 'H',     mash, -> moveWindowLeftOneColumn()
-    # key_binding 'K',     mash, -> windowUpOneRow()
-    # key_binding 'J',     mash, -> windowDownOneRow()
-    # key_binding 'L',     mash, -> moveWindowRightOneColumn()
+    key_binding 'U',     mash, -> moveToGrid(0, 0)
+    key_binding 'J',     mash, -> moveToGrid(0, 1)
+    key_binding 'I',     mash, -> moveToGrid(1, 0)
+    key_binding 'K',     mash, -> moveToGrid(1, 1)
+    key_binding 'O',     mash, -> moveToGrid(2, 0)
+    key_binding 'L',     mash, -> moveToGrid(2, 1)
+    key_binding 'P',     mash, -> moveToGrid(3, 0)
+    key_binding ';',     mash, -> moveToGrid(3, 1)
 
-Size the current window on the grid
-
-    # key_binding 'U',     mash, -> windowToFullHeight()
-
-    # key_binding 'I',     mash, -> windowShrinkOneGridColumn()
-    # key_binding 'O',     mash, -> windowGrowOneGridColumn()
-    # key_binding ',',     mash, -> windowShrinkOneGridRow()
-    # key_binding '.',     mash, -> windowGrowOneGridRow()
+    key_binding 'U',     focusMash, -> focusGrid(0, 0)
+    key_binding 'J',     focusMash, -> focusGrid(0, 1)
+    key_binding 'I',     focusMash, -> focusGrid(1, 0)
+    key_binding 'K',     focusMash, -> focusGrid(1, 1)
+    key_binding 'O',     focusMash, -> focusGrid(2, 0)
+    key_binding 'L',     focusMash, -> focusGrid(2, 1)
+    key_binding 'P',     focusMash, -> focusGrid(3, 0)
+    key_binding ';',     focusMash, -> focusGrid(3, 1)
 
 That's all folks.
 

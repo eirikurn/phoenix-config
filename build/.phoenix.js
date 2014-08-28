@@ -1,4 +1,4 @@
-var BROWSER, EDITOR, FINDER, GRID_HEIGHT, GRID_WIDTH, MARGIN_X, MARGIN_Y, MUSIC, TERMINAL, VIDEO, changeGridHeight, changeGridWidth, debug, forApp, key_binding, lastFrames, layouts, mash, moveWindowLeftOneColumn, moveWindowRightOneColumn, moveWindowToNextScreen, moveWindowToPreviousScreen, snapAllToGrid, switchLayout, transposeWindows, windowDownOneRow, windowGrowOneGridColumn, windowGrowOneGridRow, windowShrinkOneGridColumn, windowShrinkOneGridRow, windowToFullHeight, windowUpOneRow;
+var BROWSER, EDITOR, FINDER, GRID_HEIGHT, GRID_WIDTH, MARGIN_X, MARGIN_Y, MUSIC, TERMINAL, VIDEO, changeGridHeight, changeGridWidth, debug, focusGrid, focusMash, forApp, getScreensLeftToRightTopToBottom, key_binding, lastFrames, layouts, mash, moveToGrid, moveWindowLeftOneColumn, moveWindowRightOneColumn, moveWindowToNextScreen, moveWindowToPreviousScreen, snapAllToGrid, switchLayout, transposeWindows, windowDownOneRow, windowGrowOneGridColumn, windowGrowOneGridRow, windowShrinkOneGridColumn, windowShrinkOneGridRow, windowToFullHeight, windowUpOneRow;
 
 debug = function(message) {
   return api.alert(message, 10);
@@ -258,6 +258,58 @@ moveWindowToPreviousScreen = function() {
   return win.setGrid(win.getGrid(), win.screen().previousScreen());
 };
 
+moveToGrid = function(x, y) {
+  var screens, targetScreen, win;
+  win = Window.focusedWindow();
+  screens = getScreensLeftToRightTopToBottom(win);
+  targetScreen = screens[Math.floor(x / 2)];
+  x %= 2;
+  return win.setGrid({
+    x: x,
+    y: y,
+    width: 1,
+    height: 1
+  }, targetScreen);
+};
+
+getScreensLeftToRightTopToBottom = function(win) {
+  var curScreen, firstScreen, screens;
+  firstScreen = win.screen();
+  curScreen = firstScreen.nextScreen();
+  screens = [curScreen];
+  while (curScreen !== firstScreen) {
+    curScreen = curScreen.nextScreen();
+    screens.push(curScreen);
+  }
+  return _.chain(screens).map(function(screen) {
+    var x, y, _ref;
+    _ref = screen.frameWithoutDockOrMenu(), x = _ref.x, y = _ref.y;
+    return {
+      x: x,
+      y: y,
+      screen: screen
+    };
+  }).sortBy('y').sortBy('x').pluck('screen').value();
+};
+
+focusGrid = function(x, y) {
+  var isCellFocused, windows;
+  windows = Window.visibleWindowsMostRecentFirst();
+  windows = windows.filter(function(win) {
+    var frame;
+    frame = win.getGrid();
+    return frame.x === x && frame.y === y;
+  });
+  isCellFocused = _.map(windows, function(w) {
+    return w.info();
+  }).indexOf(Window.focusedWindow().info()) > -1;
+  if (isCellFocused) {
+    return windows[windows.length - 1].focusWindow();
+  } else if (windows.length) {
+    return windows[0].focusWindow();
+  }
+};
+
 moveWindowLeftOneColumn = function() {
   var frame, win;
   win = Window.focusedWindow();
@@ -439,6 +491,8 @@ key_binding = function(key, modifier, fn) {
 
 mash = 'cmd+alt+ctrl'.split('+');
 
+focusMash = 'shift+cmd+alt+ctrl'.split('+');
+
 key_binding("T", mash, function() {
   return transposeWindows(true, false);
 });
@@ -557,6 +611,70 @@ key_binding('[', mash, function() {
 
 key_binding(']', mash, function() {
   return changeGridHeight(-1);
+});
+
+key_binding('U', mash, function() {
+  return moveToGrid(0, 0);
+});
+
+key_binding('J', mash, function() {
+  return moveToGrid(0, 1);
+});
+
+key_binding('I', mash, function() {
+  return moveToGrid(1, 0);
+});
+
+key_binding('K', mash, function() {
+  return moveToGrid(1, 1);
+});
+
+key_binding('O', mash, function() {
+  return moveToGrid(2, 0);
+});
+
+key_binding('L', mash, function() {
+  return moveToGrid(2, 1);
+});
+
+key_binding('P', mash, function() {
+  return moveToGrid(3, 0);
+});
+
+key_binding(';', mash, function() {
+  return moveToGrid(3, 1);
+});
+
+key_binding('U', focusMash, function() {
+  return focusGrid(0, 0);
+});
+
+key_binding('J', focusMash, function() {
+  return focusGrid(0, 1);
+});
+
+key_binding('I', focusMash, function() {
+  return focusGrid(1, 0);
+});
+
+key_binding('K', focusMash, function() {
+  return focusGrid(1, 1);
+});
+
+key_binding('O', focusMash, function() {
+  return focusGrid(2, 0);
+});
+
+key_binding('L', focusMash, function() {
+  return focusGrid(2, 1);
+});
+
+key_binding('P', focusMash, function() {
+  return focusGrid(3, 0);
+});
+
+key_binding(';', focusMash, function() {
+  return focusGrid(3, 1);
 });
 
 key_binding("`", mash, function() {
