@@ -80,123 +80,118 @@ will get focus.
 
 ## Methods
 
+### Screen Meta
+
+    class ScreenGrid
+      constructor: ->
+        @screens = ScreenGrid.screens()
+
+      getScreenFrame: (gridFrame) ->
+        screenIndex = Math.floor(gridFrame.x / GRID_WIDTH)
+        screenIndex = 0 if (screenIndex > @screens.length)
+        screen = @screens[screenIndex] || @screens[0]
+
+        # Change to intra-screen grid.
+        gridFrame =
+          x: gridFrame.x % GRID_WIDTH
+          y: gridFrame.y
+          width: gridFrame.width || 1
+          height: gridFrame.height || 1
+
+        screenRect = screen.frameWithoutDockOrMenu()
+        halfScreenWidth = screenRect.width / GRID_WIDTH
+        halfScreenHeight = screenRect.height / GRID_HEIGHT
+        newFrame =
+          x: (gridFrame.x * halfScreenWidth) + screenRect.x
+          y: (gridFrame.y * halfScreenHeight) + screenRect.y
+          width: gridFrame.width * halfScreenWidth
+          height: gridFrame.height * halfScreenHeight
+        newFrame.x += MARGIN_X
+        newFrame.y += MARGIN_Y
+        newFrame.width -= (MARGIN_X * 2.0)
+        newFrame.height -= (MARGIN_Y * 2.0)
+        return newFrame
+
+      closestGridFrame: (win, rounded = true) ->
+        winFrame = win.frame()
+        screenRect = win.screen().frameWithoutDockOrMenu()
+        halfScreenWidth = screenRect.width / GRID_WIDTH
+        halfScreenHeight = screenRect.height / GRID_HEIGHT
+
+Normally the function always return a grid frame. By changing `rounded` to
+false, it will return null unless the window frame is positioned directly on the grid.
+
+        unless rounded
+          allowedXDelta = 20 / halfScreenWidth
+          allowedYDelta = 20 / halfScreenWidth
+          unless @isWholeNum((winFrame.x - screenRect.x) / halfScreenWidth, allowedXDelta) and
+              @isWholeNum((winFrame.y - screenRect.y) / halfScreenHeight, allowedYDelta) and
+              @isWholeNum(winFrame.width / halfScreenWidth, allowedXDelta) and
+              @isWholeNum(winFrame.height / halfScreenHeight, allowedYDelta)
+            return
+
+        gridFrame =
+          x: Math.round((winFrame.x - screenRect.x) / halfScreenWidth)
+          y: Math.round((winFrame.y - screenRect.y) / halfScreenHeight)
+          width: Math.max(1, Math.round(winFrame.width / halfScreenWidth))
+          height: Math.max(1, Math.round(winFrame.height / halfScreenHeight))
+
+        screenIndex = @screens.indexOf(win.screen())
+        gridFrame.x += screenIndex * GRID_WIDTH
+        return gridFrame
+
+      isWholeNum: (number, delta) ->
+        Math.abs(Math.round(number) - number) <= delta
+
+      @closestGridFrame: (args...) ->
+        new @().closestGridFrame(args...)
+
+      @getScreenFrame: (args...) ->
+        new @().getScreenFrame(args...)
+
+      @screens: (win) ->
+        # Enumerate all available screens
+        firstScreen = Window.focusedWindow().screen()
+        curScreen = firstScreen.nextScreen()
+        screens = [curScreen]
+        while curScreen != firstScreen
+          curScreen = curScreen.nextScreen()
+          screens.push(curScreen)
+
+        # Sort screens by X position, Y position second.
+        _.chain(screens)
+          .map (screen) ->
+            {x, y} = screen.frameWithoutDockOrMenu()
+            {x, y, screen}
+          .sortBy 'y'
+          .sortBy 'x'
+          .pluck 'screen'
+          .value()
+
+
 ### Window Grid
 
 Snap all windows to grid layout
 
     snapAllToGrid = ->
+      grid = new ScreenGrid()
       Window.visibleWindows().map (win) ->
         win.snapToGrid()
         return
-      return
-
-Change grid by a width factor
-
-    changeGridWidth = (by_) ->
-      GRID_WIDTH = Math.max(1, GRID_WIDTH + by_)
-      api.alert "grid is now " + GRID_WIDTH + " tiles wide", 1
-      snapAllToGrid()
-      return
-
-    changeGridHeight = (by_) ->
-      GRID_HEIGHT = Math.max(1, GRID_HEIGHT + by_)
-      api.alert "grid is now " + GRID_HEIGHT + " tiles high", 1
-      snapAllToGrid()
-      return
-
-Get the current grid as `{x:,y:,width:,height:}`
-
-    Window::getGrid = ->
-      winFrame = @frame()
-      screenRect = @screen().frameWithoutDockOrMenu()
-      thirdScreenWidth = screenRect.width / GRID_WIDTH
-      halfScreenHeight = screenRect.height / GRID_HEIGHT
-      x: Math.round((winFrame.x - screenRect.x) / thirdScreenWidth)
-      y: Math.round((winFrame.y - screenRect.y) / halfScreenHeight)
-      width: Math.max(1, Math.round(winFrame.width / thirdScreenWidth))
-      height: Math.max(1, Math.round(winFrame.height / halfScreenHeight))
-
-Set the current grid from an object `{x:,y:,width:,height:}`
-
-    Window::setGrid = (grid, screen) ->
-      screenRect = screen.frameWithoutDockOrMenu()
-      thirdScreenWidth = screenRect.width / GRID_WIDTH
-      halfScreenHeight = screenRect.height / GRID_HEIGHT
-      newFrame =
-        x: (grid.x * thirdScreenWidth) + screenRect.x
-        y: (grid.y * halfScreenHeight) + screenRect.y
-        width: grid.width * thirdScreenWidth
-        height: grid.height * halfScreenHeight
-      newFrame.x += MARGIN_X
-      newFrame.y += MARGIN_Y
-      newFrame.width -= (MARGIN_X * 2.0)
-      newFrame.height -= (MARGIN_Y * 2.0)
-      @setFrame newFrame
 
 Snap the current window to the grid
 
-    Window::snapToGrid = ->
-      @setGrid @getGrid(), @screen()  if @isNormalWindow()
+    Window::snapToGrid = (grid = ScreenGrid) ->
+      return unless @isNormalWindow()
 
-Calculate the grid based on the parameters, `x`, `y`, `width`, `height`, (returning an object `{x:,y:,width:,height:}`)
-
-    Window::calculateGrid = (x, y, width, height) ->
-      screen = @screen().frameWithoutDockOrMenu()
-      x: Math.round(x * screen.width) + MARGIN_X + screen.x
-      y: Math.round(y * screen.height) + MARGIN_Y + screen.y
-      width: Math.round(width * screen.width) - 2.0 * MARGIN_X
-      height: Math.round(height * screen.height) - 2.0 * MARGIN_Y
-
-Window to grid
-
-    Window::toGrid = (x, y, width, height) ->
-      rect = @calculateGrid(x, y, width, height)
-      @setFrame rect
-      this
-
-Window top right point
-
-    Window::topRight = ->
-      f = @frame()
-      {
-        x: f.x + f.width
-        y: f.y
-      }
-
-Windows on the left
-
-    Window::toLeft = ->
-      p = @topLeft()
-      _.chain(@windowsToWest())
-      .filter (win)->
-        win.topLeft().x < p.x - 10
-      .value()
-
-Windows on the right
-
-    Window::toRight = ->
-      p = @topRight()
-      _.chain(@windowsToEast())
-      .filter (win) ->
-        win.topRight().x > p.x + 10
-      .value()
+      frame = grid.closestGridFrame(win)
+      @setFrame grid.getScreenFrame(frame)
 
 ### Window information
 
     Window::info = ->
       f = @frame()
       "[#{@app().pid}] #{@app().title()} : #{@title()}\n{x:#{f.x}, y:#{f.y}, width:#{f.width}, height:#{f.height}}\n"
-
-Sort any window collection by most recently with focus. We use
-`info()` as a way of identifying the windows in place. Not too
-performant, but with collections of this size, it's not a problem.
-
-    Window.sortByMostRecent = (windows)->
-      allVisible = Window.visibleWindowsMostRecentFirst()
-      _.chain(windows)
-      .sortBy (win)->
-        _.map(allVisible, (w)-> w.info()).indexOf(win.info())
-      .value()
 
 ### Window moving and sizing
 
@@ -210,7 +205,7 @@ Set a window to full screen
       fullFrame = @calculateGrid(0, 0, 1, 1)
       unless _.isEqual(@frame(), fullFrame)
         @rememberFrame()
-        @toGrid 0, 0, 1, 1
+        @toCell 0, 0, 1, 1
       else if lastFrames[this]
         @setFrame lastFrames[this]
         @forgetFrame()
@@ -220,162 +215,32 @@ Remember and forget frames
     Window::rememberFrame = -> lastFrames[this] = @frame()
     Window::forgetFrame = -> delete lastFrames[this]
 
-Set a window to top / bottom / left / right
-
-    #                                  x:   y:   width: height:
-    Window::toTopHalf     = -> @toGrid 0,   0,   1,     0.5
-    Window::toBottomHalf  = -> @toGrid 0,   0.5, 1,     0.5
-    Window::toLeftHalf    = -> @toGrid 0,   0,   0.5,   1
-    Window::toRightHalf   = -> @toGrid 0.5, 0,   0.5,   1
-    #                                  x:   y:   width: height:
-    Window::toTopRight    = -> @toGrid 0.5, 0,   0.5,   0.5
-    Window::toBottomRight = -> @toGrid 0.5, 0.5, 0.5,   0.5
-    Window::toTopLeft     = -> @toGrid 0,   0,   0.5,   0.5
-    Window::toBottomLeft  = -> @toGrid 0,   0.5, 0.5,   0.5
-
-Move the current window to the next / previous screen
-
-    moveWindowToNextScreen = ->
-      win = Window.focusedWindow()
-      win.setGrid win.getGrid(), win.screen().nextScreen()
-
-    moveWindowToPreviousScreen = ->
-      win = Window.focusedWindow()
-      win.setGrid win.getGrid(), win.screen().previousScreen()
-
 Move the current window to a grid cell
 
-    moveToGrid = (x, y) ->
+    toCell = (x, y) ->
       win = Window.focusedWindow()
-      screens = getScreensLeftToRightTopToBottom(win)
-      targetScreen = screens[Math.floor(x / 2)]
-      x %= 2
-      win.setGrid({x: x, y: y, width: 1, height: 1}, targetScreen)
-
-    getScreensLeftToRightTopToBottom = (win) ->
-      # Enumerate all available screens
-      firstScreen = win.screen()
-      curScreen = firstScreen.nextScreen()
-      screens = [curScreen]
-      while curScreen != firstScreen
-        curScreen = curScreen.nextScreen()
-        screens.push(curScreen)
-
-      # Sort screens by X position, Y position second.
-      _.chain(screens)
-        .map (screen) ->
-          {x, y} = screen.frameWithoutDockOrMenu()
-          {x, y, screen}
-        .sortBy 'y'
-        .sortBy 'x'
-        .pluck 'screen'
-        .value()
+      screenGrid = new ScreenGrid()
+      frame = screenGrid.closestGridFrame(win, false)
+      if frame and frame.x == x and frame.y == y
+        frame.height = if frame.height != 1 then 1 else GRID_HEIGHT
+        frame.y = 0 if frame.height == GRID_HEIGHT
+        win.setFrame(screenGrid.getScreenFrame(frame))
+      else
+        win.setFrame(screenGrid.getScreenFrame(x: x, y: y))
 
     focusGrid = (x, y) ->
+      screenGrid = new ScreenGrid()
       windows = Window.visibleWindowsMostRecentFirst()
       windows = windows.filter (win) ->
-        frame = win.getGrid()
-        frame.x == x && frame.y == y
+        frame = screenGrid.closestGridFrame(win, false)
+        frame && frame.x == x && frame.y == y
 
-      isCellFocused = _.map(windows, (w)-> w.info()).indexOf(Window.focusedWindow().info()) > -1
+      isCellFocused = _.map(windows, (w) -> w.info()).indexOf(Window.focusedWindow().info()) > -1
 
       if isCellFocused
         windows[windows.length - 1].focusWindow()
       else if windows.length
         windows[0].focusWindow()
-
-
-Move the current window by one column
-
-    moveWindowLeftOneColumn = ->
-      win = Window.focusedWindow()
-      frame = win.getGrid()
-      frame.x = Math.max(frame.x - 1, 0)
-      win.setGrid frame, win.screen()
-
-    moveWindowRightOneColumn = ->
-      win = Window.focusedWindow()
-      frame = win.getGrid()
-      frame.x = Math.min(frame.x + 1, GRID_WIDTH - frame.width)
-      win.setGrid frame, win.screen()
-
-Grow and shrink the current window by a single grid cell
-
-    windowGrowOneGridColumn = ->
-      win = Window.focusedWindow()
-      frame = win.getGrid()
-      frame.width = Math.min(frame.width + 1, GRID_WIDTH - frame.x)
-      win.setGrid frame, win.screen()
-
-    windowShrinkOneGridColumn = ->
-      win = Window.focusedWindow()
-      frame = win.getGrid()
-      frame.width = Math.max(frame.width - 1, 1)
-      win.setGrid frame, win.screen()
-
-    windowGrowOneGridRow = ->
-      win = Window.focusedWindow()
-      frame = win.getGrid()
-      frame.height = Math.min(frame.height + 1, GRID_HEIGHT)
-      win.setGrid frame, win.screen()
-
-    windowShrinkOneGridRow = ->
-      win = Window.focusedWindow()
-      frame = win.getGrid()
-      frame.height = Math.max(frame.height - 1, 1)
-      win.setGrid frame, win.screen()
-
-Shift the current window to the bottom or top row
-
-    windowDownOneRow = ->
-      win = Window.focusedWindow()
-      frame = win.getGrid()
-      frame.y = Math.min(Math.floor(frame.y + 1), GRID_HEIGHT - 1)
-      win.setGrid frame, win.screen()
-
-    windowUpOneRow = ->
-      win = Window.focusedWindow()
-      frame = win.getGrid()
-      frame.y = Math.max(Math.floor(frame.y - 1), 0)
-      win.setGrid frame, win.screen()
-
-Expand the current window's height to vertically fill the screen
-
-    windowToFullHeight = ->
-      win = Window.focusedWindow()
-      frame = win.getGrid()
-      frame.y = 0
-      frame.height = GRID_HEIGHT
-      win.setGrid frame, win.screen()
-
-### Transpose windows
-
-    transposeWindows = (swapFrame = true, switchFocus = true)->
-      win = Window.focusedWindow()
-      left = win.toRight()
-      right = win.toLeft()
-      targets = if left.length > 0
-        left
-      else if right.length > 0
-        right
-
-      unless targets?.length > 0
-        api.alert "Can't see any windows to transpose"
-        return
-
-      target = Window.sortByMostRecent(targets)[0]
-
-      t_frame = target.frame()
-      w_frame = win.frame()
-
-      if swapFrame
-        win.setFrame t_frame
-        target.setFrame w_frame
-      else
-        target.topLeft x:w_frame.x, y:w_frame.y
-        win.topLeft    x:t_frame.x, y:t_frame.y
-
-      target.focusWindow() if switchFocus
 
 ### Applications
 
@@ -429,12 +294,6 @@ Focus or start an app with `title`
         return
       return
 
-Run the given function `fn` for an app with `title`
-
-    forApp = (title, fn) ->
-      app = App.byTitle(title)
-      _.each app.visibleWindows(), fn  if app
-
 ### Manage layouts
 
 Switch to a predefined layout [as above](#layout-config)
@@ -457,41 +316,10 @@ readable.
 
 ### Keyboard Guide
 
-![][1]
-
 Mash is **Cmd** + **Alt/Opt** + **Ctrl** pressed together.
 
     mash = 'cmd+alt+ctrl'.split '+'
-    focusMash = 'shift+cmd+alt+ctrl'.split '+'
-
-Transpose/Swap Windows
-
-    # Transpose
-    key_binding "T",     mash, -> transposeWindows(true, false)
-    # Transpose and switch focus
-    key_binding "Y",     mash, -> transposeWindows(true, true)
-
-Move the current window to the top / bottom / left / right half of the screen
-and fill it.
-
-    key_binding 'up',    mash, -> Window.focusedWindow().toTopHalf()
-    key_binding 'down',  mash, -> Window.focusedWindow().toBottomHalf()
-    key_binding 'left',  mash, -> Window.focusedWindow().toLeftHalf()
-    key_binding 'right', mash, -> Window.focusedWindow().toRightHalf()
-
-Move to the corners of the screen
-
-    key_binding 'Q',     mash, -> Window.focusedWindow().toTopLeft()
-    key_binding 'A',     mash, -> Window.focusedWindow().toBottomLeft()
-    key_binding 'W',     mash, -> Window.focusedWindow().toTopRight()
-    key_binding 'S',     mash, -> Window.focusedWindow().toBottomRight()
-
-Focus to direction
-
-    key_binding 'R',     mash, -> Window.focusedWindow().focusWindowUp()
-    key_binding 'D',     mash, -> Window.focusedWindow().focusWindowLeft()
-    key_binding 'F',     mash, -> Window.focusedWindow().focusWindowRight()
-    key_binding 'C',     mash, -> Window.focusedWindow().focusWindowDown()
+    hardMash = 'shift+cmd+alt+ctrl'.split '+'
 
 Maximize the current window
 
@@ -517,48 +345,31 @@ Switch layouts using the predefined [Layout config](#layout-config)
     key_binding '2',     mash, -> switchLayout 'Finder and Terminal'
     key_binding '1',     mash, -> switchLayout 'Finder and Browser'
 
-Setting the grid size
-
-    key_binding '=',     mash, -> changeGridWidth +1
-    key_binding '-',     mash, -> changeGridWidth -1
-    key_binding '[',     mash, -> changeGridHeight +1
-    key_binding ']',     mash, -> changeGridHeight -1
-
 Snap current window or all windows to the grid
 
-    # key_binding ';',     mash, -> Window.focusedWindow().snapToGrid()
-    # key_binding "'",     mash, -> Window.visibleWindows().map (win)-> win.snapToGrid()
+    key_binding "'",     mash, -> snapAllToGrid()
 
 Move the current window around the grid
 
-    key_binding 'U',     mash, -> moveToGrid(0, 0)
-    key_binding 'J',     mash, -> moveToGrid(0, 1)
-    key_binding 'I',     mash, -> moveToGrid(1, 0)
-    key_binding 'K',     mash, -> moveToGrid(1, 1)
-    key_binding 'O',     mash, -> moveToGrid(2, 0)
-    key_binding 'L',     mash, -> moveToGrid(2, 1)
-    key_binding 'P',     mash, -> moveToGrid(3, 0)
-    key_binding ';',     mash, -> moveToGrid(3, 1)
+    key_binding 'U',     hardMash, -> toCell(0, 0)
+    key_binding 'J',     hardMash, -> toCell(0, 1)
+    key_binding 'I',     hardMash, -> toCell(1, 0)
+    key_binding 'K',     hardMash, -> toCell(1, 1)
+    key_binding 'O',     hardMash, -> toCell(2, 0)
+    key_binding 'L',     hardMash, -> toCell(2, 1)
+    key_binding 'P',     hardMash, -> toCell(3, 0)
+    key_binding ';',     hardMash, -> toCell(3, 1)
 
-    key_binding 'U',     focusMash, -> focusGrid(0, 0)
-    key_binding 'J',     focusMash, -> focusGrid(0, 1)
-    key_binding 'I',     focusMash, -> focusGrid(1, 0)
-    key_binding 'K',     focusMash, -> focusGrid(1, 1)
-    key_binding 'O',     focusMash, -> focusGrid(2, 0)
-    key_binding 'L',     focusMash, -> focusGrid(2, 1)
-    key_binding 'P',     focusMash, -> focusGrid(3, 0)
-    key_binding ';',     focusMash, -> focusGrid(3, 1)
+Focuses the top-most window in a grid cell. If cell already has
+focus, cycle focus between windows in same cell.
+
+    key_binding 'U',     mash, -> focusGrid(0, 0)
+    key_binding 'J',     mash, -> focusGrid(0, 1)
+    key_binding 'I',     mash, -> focusGrid(1, 0)
+    key_binding 'K',     mash, -> focusGrid(1, 1)
+    key_binding 'O',     mash, -> focusGrid(2, 0)
+    key_binding 'L',     mash, -> focusGrid(2, 1)
+    key_binding 'P',     mash, -> focusGrid(3, 0)
+    key_binding ';',     mash, -> focusGrid(3, 1)
 
 That's all folks.
-
-### Quick reference, open the keyboard cheatsheet in a browser
-
-**Mash + `**
-
-    key_binding "`", mash, -> # mash backtick
-      api.runCommand "/usr/bin/open", ["https://gist.githubusercontent.com/jasonm23/4990cc1e02a3c2a8e159/raw/phoenix.keyboard.png"]
-
-Note: `api.runCommand` is undocumented in the API ref, I've included
-the method signature in the API ref in this gist.
-
-[1]:https://gist.githubusercontent.com/jasonm23/4990cc1e02a3c2a8e159/raw/phoenix.keyboard.png
