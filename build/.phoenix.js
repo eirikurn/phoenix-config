@@ -1,4 +1,4 @@
-var BROWSER, EDITOR, FINDER, GRID_HEIGHT, GRID_WIDTH, MARGIN_X, MARGIN_Y, MUSIC, ScreenGrid, TERMINAL, VIDEO, debug, focusGrid, hardMash, key_binding, lastFrames, layouts, mash, snapAllToGrid, switchLayout, toCell,
+var BROWSER, EDITOR, FINDER, GRID_HEIGHT, GRID_WIDTH, MARGIN_X, MARGIN_Y, MUSIC, ScreenGrid, TERMINAL, VIDEO, coversCell, debug, focusGrid, hardMash, key_binding, lastFrames, layouts, mash, snapAllToGrid, switchLayout, toCell,
   __slice = [].slice;
 
 debug = function(message) {
@@ -253,7 +253,7 @@ focusGrid = function(x, y) {
   windows = windows.filter(function(win) {
     var frame;
     frame = screenGrid.closestGridFrame(win, false);
-    return frame && frame.x === x && frame.y === y;
+    return frame && coversCell(frame, x, y);
   });
   isCellFocused = _.map(windows, function(w) {
     return w.info();
@@ -263,6 +263,13 @@ focusGrid = function(x, y) {
   } else if (windows.length) {
     return windows[0].focusWindow();
   }
+};
+
+coversCell = function(frame, x, y) {
+  var frameBottom, frameRight;
+  frameRight = frame.x + frame.width;
+  frameBottom = frame.y + frame.height;
+  return (frame.x <= x && x < frameRight) && (frame.y <= y && y < frameBottom);
 };
 
 App.prototype.firstWindow = function() {

@@ -233,7 +233,7 @@ Move the current window to a grid cell
       windows = Window.visibleWindowsMostRecentFirst()
       windows = windows.filter (win) ->
         frame = screenGrid.closestGridFrame(win, false)
-        frame && frame.x == x && frame.y == y
+        frame && coversCell(frame, x, y)
 
       isCellFocused = _.map(windows, (w) -> w.info()).indexOf(Window.focusedWindow().info()) > -1
 
@@ -241,6 +241,11 @@ Move the current window to a grid cell
         windows[windows.length - 1].focusWindow()
       else if windows.length
         windows[0].focusWindow()
+
+    coversCell = (frame, x, y) ->
+      frameRight = frame.x + frame.width
+      frameBottom = frame.y + frame.height
+      frame.x <= x < frameRight and frame.y <= y < frameBottom
 
 ### Applications
 
