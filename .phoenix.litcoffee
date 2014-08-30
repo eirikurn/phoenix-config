@@ -52,7 +52,7 @@ We'll use a 20 second alert to show debug messages, +1 for a Phoenix REPL!
     MUSIC        = "Spotify"
     VIDEO        = "Plex Home Theater"
 
-## Default app frames
+## Default app layout
 
     appFrames = 
       "HipChat": x: 0, y: 0
@@ -73,32 +73,6 @@ We'll use a 20 second alert to show debug messages, +1 for a Phoenix REPL!
       "Terminal": x: 3, y: 0
 
       "Dash": x: 3, y: 1
-
-## Layout config
-
-A few helpful app layouts. **note:** The last app in a layout array
-will get focus.
-
-    layouts =
-      "Editor and Browser":
-        0: app: BROWSER,  whereTo: "toRightHalf"
-        1: app: EDITOR,   whereTo: "toLeftHalf"
-
-      "Editor and Terminal":
-        0: app: TERMINAL, whereTo: "toRightHalf"
-        1: app: EDITOR,   whereTo: "toLeftHalf"
-
-      "Terminal and Browser":
-        0: app: TERMINAL, whereTo: "toLeftHalf"
-        1: app: BROWSER,  whereTo: "toRightHalf"
-
-      "Finder and Terminal":
-        0: app: TERMINAL, whereTo: "toRightHalf"
-        1: app: FINDER,   whereTo: "toLeftHalf"
-
-      "Finder and Browser": 
-        0: app: BROWSER,  whereTo: "toRightHalf"
-        1: app: FINDER,   whereTo: "toLeftHalf"
 
 ## Methods
 
@@ -332,16 +306,6 @@ Focus or start an app with `title`
         return
       return
 
-### Manage layouts
-
-Switch to a predefined layout [as above](#layout-config)
-
-    switchLayout = (name)->
-      _.each layouts[name], (config)->
-        App.focusOrStart config.app
-        app = App.byTitle config.app
-        app.firstWindow()[config.whereTo]()
-
 ### Binding alias
 
 Alias `api.bind` as `key_binding`, to make the binding table extra
@@ -374,14 +338,6 @@ Switch to or lauch apps, as defined in the [Application config](#application-con
 
     key_binding 'V',     mash, -> App.focusOrStart VIDEO
     key_binding 'B',     mash, -> App.focusOrStart MUSIC
-
-Switch layouts using the predefined [Layout config](#layout-config)
-
-    key_binding '5',     mash, -> switchLayout 'Editor and Browser'
-    key_binding '4',     mash, -> switchLayout 'Editor and Terminal'
-    key_binding '3',     mash, -> switchLayout 'Terminal and Browser'
-    key_binding '2',     mash, -> switchLayout 'Finder and Terminal'
-    key_binding '1',     mash, -> switchLayout 'Finder and Browser'
 
 Snap current window or all windows to the grid
 

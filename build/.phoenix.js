@@ -1,4 +1,4 @@
-var BROWSER, EDITOR, FINDER, GRID_HEIGHT, GRID_WIDTH, MARGIN_X, MARGIN_Y, MUSIC, ScreenGrid, TERMINAL, VIDEO, appFrames, coversCell, debug, focusGrid, hardMash, key_binding, lastFrames, layouts, mash, moveAllToDefault, snapAllToGrid, switchLayout, toCell,
+var BROWSER, EDITOR, FINDER, GRID_HEIGHT, GRID_WIDTH, MARGIN_X, MARGIN_Y, MUSIC, ScreenGrid, TERMINAL, VIDEO, appFrames, coversCell, debug, focusGrid, hardMash, key_binding, lastFrames, mash, moveAllToDefault, snapAllToGrid, toCell,
   __slice = [].slice;
 
 debug = function(message) {
@@ -77,59 +77,6 @@ appFrames = {
   "Dash": {
     x: 3,
     y: 1
-  }
-};
-
-layouts = {
-  "Editor and Browser": {
-    0: {
-      app: BROWSER,
-      whereTo: "toRightHalf"
-    },
-    1: {
-      app: EDITOR,
-      whereTo: "toLeftHalf"
-    }
-  },
-  "Editor and Terminal": {
-    0: {
-      app: TERMINAL,
-      whereTo: "toRightHalf"
-    },
-    1: {
-      app: EDITOR,
-      whereTo: "toLeftHalf"
-    }
-  },
-  "Terminal and Browser": {
-    0: {
-      app: TERMINAL,
-      whereTo: "toLeftHalf"
-    },
-    1: {
-      app: BROWSER,
-      whereTo: "toRightHalf"
-    }
-  },
-  "Finder and Terminal": {
-    0: {
-      app: TERMINAL,
-      whereTo: "toRightHalf"
-    },
-    1: {
-      app: FINDER,
-      whereTo: "toLeftHalf"
-    }
-  },
-  "Finder and Browser": {
-    0: {
-      app: BROWSER,
-      whereTo: "toRightHalf"
-    },
-    1: {
-      app: FINDER,
-      whereTo: "toLeftHalf"
-    }
   }
 };
 
@@ -389,15 +336,6 @@ App.focusOrStart = function(title) {
   });
 };
 
-switchLayout = function(name) {
-  return _.each(layouts[name], function(config) {
-    var app;
-    App.focusOrStart(config.app);
-    app = App.byTitle(config.app);
-    return app.firstWindow()[config.whereTo]();
-  });
-};
-
 key_binding = function(key, modifier, fn) {
   return api.bind(key, modifier, fn);
 };
@@ -432,26 +370,6 @@ key_binding('V', mash, function() {
 
 key_binding('B', mash, function() {
   return App.focusOrStart(MUSIC);
-});
-
-key_binding('5', mash, function() {
-  return switchLayout('Editor and Browser');
-});
-
-key_binding('4', mash, function() {
-  return switchLayout('Editor and Terminal');
-});
-
-key_binding('3', mash, function() {
-  return switchLayout('Terminal and Browser');
-});
-
-key_binding('2', mash, function() {
-  return switchLayout('Finder and Terminal');
-});
-
-key_binding('1', mash, function() {
-  return switchLayout('Finder and Browser');
 });
 
 key_binding("'", mash, function() {
