@@ -52,6 +52,28 @@ We'll use a 20 second alert to show debug messages, +1 for a Phoenix REPL!
     MUSIC        = "Spotify"
     VIDEO        = "Plex Home Theater"
 
+## Default app frames
+
+    appFrames = 
+      "HipChat": x: 0, y: 0
+      "Mailbox (Beta)": x: 0, y: 0
+
+      "Calendar": x: 0, y: 1
+      "Reminders": x: 0, y: 1
+
+      "Google Chrome": x: 1, y: 0, height: 2
+
+      "Sublime Text": x: 2, y: 0, height: 2
+      "PyCharm": x: 2, y: 0, height: 2
+      "RubyMine": x: 2, y: 0, height: 2
+
+      "GitHub": x: 2, y: 1
+      "Harvest": x: 2, y: 1
+
+      "Terminal": x: 3, y: 0
+
+      "Dash": x: 3, y: 1
+
 ## Layout config
 
 A few helpful app layouts. **note:** The last app in a layout array
@@ -176,7 +198,18 @@ Snap all windows to grid layout
     snapAllToGrid = ->
       grid = new ScreenGrid()
       Window.visibleWindows().map (win) ->
-        win.snapToGrid()
+        win.snapToGrid(grid)
+        return
+
+Move all windows to their default application positions.
+
+    moveAllToDefault = ->
+      grid = new ScreenGrid()
+      Window.visibleWindows().map (win) ->
+        return unless win.isNormalWindow()
+
+        if frame = appFrames[win.app().title()]
+          win.setFrame(grid.getScreenFrame(frame))
         return
 
 Snap the current window to the grid
@@ -353,6 +386,7 @@ Switch layouts using the predefined [Layout config](#layout-config)
 Snap current window or all windows to the grid
 
     key_binding "'",     mash, -> snapAllToGrid()
+    key_binding "'",     hardMash, -> moveAllToDefault()
 
 Move the current window around the grid
 

@@ -1,4 +1,4 @@
-var BROWSER, EDITOR, FINDER, GRID_HEIGHT, GRID_WIDTH, MARGIN_X, MARGIN_Y, MUSIC, ScreenGrid, TERMINAL, VIDEO, coversCell, debug, focusGrid, hardMash, key_binding, lastFrames, layouts, mash, snapAllToGrid, switchLayout, toCell,
+var BROWSER, EDITOR, FINDER, GRID_HEIGHT, GRID_WIDTH, MARGIN_X, MARGIN_Y, MUSIC, ScreenGrid, TERMINAL, VIDEO, appFrames, coversCell, debug, focusGrid, hardMash, key_binding, lastFrames, layouts, mash, moveAllToDefault, snapAllToGrid, switchLayout, toCell,
   __slice = [].slice;
 
 debug = function(message) {
@@ -24,6 +24,61 @@ FINDER = "Finder";
 MUSIC = "Spotify";
 
 VIDEO = "Plex Home Theater";
+
+appFrames = {
+  "HipChat": {
+    x: 0,
+    y: 0
+  },
+  "Mailbox (Beta)": {
+    x: 0,
+    y: 0
+  },
+  "Calendar": {
+    x: 0,
+    y: 1
+  },
+  "Reminders": {
+    x: 0,
+    y: 1
+  },
+  "Google Chrome": {
+    x: 1,
+    y: 0,
+    height: 2
+  },
+  "Sublime Text": {
+    x: 2,
+    y: 0,
+    height: 2
+  },
+  "PyCharm": {
+    x: 2,
+    y: 0,
+    height: 2
+  },
+  "RubyMine": {
+    x: 2,
+    y: 0,
+    height: 2
+  },
+  "GitHub": {
+    x: 2,
+    y: 1
+  },
+  "Harvest": {
+    x: 2,
+    y: 1
+  },
+  "Terminal": {
+    x: 3,
+    y: 0
+  },
+  "Dash": {
+    x: 3,
+    y: 1
+  }
+};
 
 layouts = {
   "Editor and Browser": {
@@ -183,7 +238,21 @@ snapAllToGrid = function() {
   var grid;
   grid = new ScreenGrid();
   return Window.visibleWindows().map(function(win) {
-    win.snapToGrid();
+    win.snapToGrid(grid);
+  });
+};
+
+moveAllToDefault = function() {
+  var grid;
+  grid = new ScreenGrid();
+  return Window.visibleWindows().map(function(win) {
+    var frame;
+    if (!win.isNormalWindow()) {
+      return;
+    }
+    if (frame = appFrames[win.app().title()]) {
+      win.setFrame(grid.getScreenFrame(frame));
+    }
   });
 };
 
@@ -387,6 +456,10 @@ key_binding('1', mash, function() {
 
 key_binding("'", mash, function() {
   return snapAllToGrid();
+});
+
+key_binding("'", hardMash, function() {
+  return moveAllToDefault();
 });
 
 key_binding('U', hardMash, function() {
