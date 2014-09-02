@@ -367,5 +367,6 @@ focus, cycle focus between windows in same cell.
     key_binding 'L',     mash, -> focusGrid(2, 1)
     key_binding 'P',     mash, -> focusGrid(3, 0)
     key_binding ';',     mash, -> focusGrid(3, 1)
+    key_binding 'Æ',     mash, -> focusGrid(3, 1)
 
 That's all folks.

@@ -447,3 +447,7 @@ key_binding('P', mash, function() {
 key_binding(';', mash, function() {
   return focusGrid(3, 1);
 });
+
+key_binding('Æ', mash, function() {
+  return focusGrid(3, 1);
+});
