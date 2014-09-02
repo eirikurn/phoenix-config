@@ -354,6 +354,7 @@ Move the current window around the grid
     key_binding 'L',     hardMash, -> toCell(2, 1)
     key_binding 'P',     hardMash, -> toCell(3, 0)
     key_binding ';',     hardMash, -> toCell(3, 1)
+    key_binding 'Æ',     hardMash, -> toCell(3, 1)
 
 Focuses the top-most window in a grid cell. If cell already has
 focus, cycle focus between windows in same cell.

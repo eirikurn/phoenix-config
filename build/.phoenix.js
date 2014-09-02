@@ -412,6 +412,10 @@ key_binding(';', hardMash, function() {
   return toCell(3, 1);
 });
 
+key_binding('Æ', hardMash, function() {
+  return toCell(3, 1);
+});
+
 key_binding('U', mash, function() {
   return focusGrid(0, 0);
 });
