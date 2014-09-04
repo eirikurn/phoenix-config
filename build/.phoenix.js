@@ -1,4 +1,4 @@
-var BROWSER, EDITOR, FINDER, GRID_HEIGHT, GRID_WIDTH, MARGIN_X, MARGIN_Y, MUSIC, ScreenGrid, TERMINAL, VIDEO, appFrames, coversCell, debug, focusGrid, hardMash, key_binding, lastFrames, mash, moveAllToDefault, snapAllToGrid, toCell,
+var APP_FRAMES, BROWSER, EDITOR, FINDER, GRID_HEIGHT, GRID_WIDTH, MARGIN_X, MARGIN_Y, MUSIC, ScreenGrid, TERMINAL, VIDEO, coversCell, debug, focusGrid, hardMash, key_binding, lastFrames, mash, moveAllToDefault, snapAllToGrid, toCell,
   __slice = [].slice;
 
 debug = function(message) {
@@ -25,7 +25,7 @@ MUSIC = "Spotify";
 
 VIDEO = "Plex Home Theater";
 
-appFrames = {
+APP_FRAMES = {
   "HipChat": {
     x: 0,
     y: 0
@@ -62,19 +62,19 @@ appFrames = {
     y: 0,
     height: 2
   },
-  "GitHub": {
-    x: 2,
-    y: 1
-  },
-  "Harvest": {
-    x: 2,
-    y: 1
-  },
   "Terminal": {
     x: 3,
     y: 0
   },
   "Dash": {
+    x: 3,
+    y: 1
+  },
+  "GitHub": {
+    x: 3,
+    y: 1
+  },
+  "Harvest": {
     x: 3,
     y: 1
   }
@@ -86,7 +86,7 @@ ScreenGrid = (function() {
   }
 
   ScreenGrid.prototype.getScreenFrame = function(gridFrame) {
-    var halfScreenHeight, halfScreenWidth, newFrame, screen, screenIndex, screenRect;
+    var cellHeight, cellWidth, newFrame, screen, screenIndex, screenRect;
     screenIndex = Math.floor(gridFrame.x / GRID_WIDTH);
     if (screenIndex > this.screens.length) {
       screenIndex = 0;
@@ -99,13 +99,13 @@ ScreenGrid = (function() {
       height: gridFrame.height || 1
     };
     screenRect = screen.frameWithoutDockOrMenu();
-    halfScreenWidth = screenRect.width / GRID_WIDTH;
-    halfScreenHeight = screenRect.height / GRID_HEIGHT;
+    cellWidth = screenRect.width / GRID_WIDTH;
+    cellHeight = screenRect.height / GRID_HEIGHT;
     newFrame = {
-      x: (gridFrame.x * halfScreenWidth) + screenRect.x,
-      y: (gridFrame.y * halfScreenHeight) + screenRect.y,
-      width: gridFrame.width * halfScreenWidth,
-      height: gridFrame.height * halfScreenHeight
+      x: (gridFrame.x * cellWidth) + screenRect.x,
+      y: (gridFrame.y * cellHeight) + screenRect.y,
+      width: gridFrame.width * cellWidth,
+      height: gridFrame.height * cellHeight
     };
     newFrame.x += MARGIN_X;
     newFrame.y += MARGIN_Y;
@@ -115,26 +115,26 @@ ScreenGrid = (function() {
   };
 
   ScreenGrid.prototype.closestGridFrame = function(win, rounded) {
-    var allowedXDelta, allowedYDelta, gridFrame, halfScreenHeight, halfScreenWidth, screenIndex, screenRect, winFrame;
+    var allowedXDelta, allowedYDelta, cellHeight, cellWidth, gridFrame, screenIndex, screenRect, winFrame;
     if (rounded == null) {
       rounded = true;
     }
     winFrame = win.frame();
     screenRect = win.screen().frameWithoutDockOrMenu();
-    halfScreenWidth = screenRect.width / GRID_WIDTH;
-    halfScreenHeight = screenRect.height / GRID_HEIGHT;
+    cellWidth = screenRect.width / GRID_WIDTH;
+    cellHeight = screenRect.height / GRID_HEIGHT;
     if (!rounded) {
-      allowedXDelta = 20 / halfScreenWidth;
-      allowedYDelta = 20 / halfScreenWidth;
-      if (!(this.isWholeNum((winFrame.x - screenRect.x) / halfScreenWidth, allowedXDelta) && this.isWholeNum((winFrame.y - screenRect.y) / halfScreenHeight, allowedYDelta) && this.isWholeNum(winFrame.width / halfScreenWidth, allowedXDelta) && this.isWholeNum(winFrame.height / halfScreenHeight, allowedYDelta))) {
+      allowedXDelta = 20 / cellWidth;
+      allowedYDelta = 20 / cellHeight;
+      if (!(this.isWholeNum((winFrame.x - screenRect.x) / cellWidth, allowedXDelta) && this.isWholeNum((winFrame.y - screenRect.y) / cellHeight, allowedYDelta) && this.isWholeNum(winFrame.width / cellWidth, allowedXDelta) && this.isWholeNum(winFrame.height / cellHeight, allowedYDelta))) {
         return;
       }
     }
     gridFrame = {
-      x: Math.round((winFrame.x - screenRect.x) / halfScreenWidth),
-      y: Math.round((winFrame.y - screenRect.y) / halfScreenHeight),
-      width: Math.max(1, Math.round(winFrame.width / halfScreenWidth)),
-      height: Math.max(1, Math.round(winFrame.height / halfScreenHeight))
+      x: Math.round((winFrame.x - screenRect.x) / cellWidth),
+      y: Math.round((winFrame.y - screenRect.y) / cellHeight),
+      width: Math.max(1, Math.round(winFrame.width / cellWidth)),
+      height: Math.max(1, Math.round(winFrame.height / cellHeight))
     };
     screenIndex = this.screens.indexOf(win.screen());
     gridFrame.x += screenIndex * GRID_WIDTH;
@@ -157,7 +157,7 @@ ScreenGrid = (function() {
     return (_ref = new this()).getScreenFrame.apply(_ref, args);
   };
 
-  ScreenGrid.screens = function(win) {
+  ScreenGrid.screens = function() {
     var curScreen, firstScreen, screens;
     firstScreen = Window.focusedWindow().screen();
     curScreen = firstScreen.nextScreen();
@@ -197,7 +197,7 @@ moveAllToDefault = function() {
     if (!win.isNormalWindow()) {
       return;
     }
-    if (frame = appFrames[win.app().title()]) {
+    if (frame = APP_FRAMES[win.app().title()]) {
       win.setFrame(grid.getScreenFrame(frame));
     }
   });
@@ -225,10 +225,10 @@ lastFrames = {};
 
 Window.prototype.toFullScreen = function() {
   var fullFrame;
-  fullFrame = this.calculateGrid(0, 0, 1, 1);
+  fullFrame = this.screen().frameWithoutDockOrMenu();
   if (!_.isEqual(this.frame(), fullFrame)) {
     this.rememberFrame();
-    return this.toCell(0, 0, 1, 1);
+    return this.setFrame(fullFrame);
   } else if (lastFrames[this]) {
     this.setFrame(lastFrames[this]);
     return this.forgetFrame();

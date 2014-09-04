@@ -38,12 +38,19 @@ We'll use a 20 second alert to show debug messages, +1 for a Phoenix REPL!
 
 ## Basic Settings
 
+Margin X and Y are to apply whitespace between window cells. 
+
     MARGIN_X     = 0
     MARGIN_Y     = 0
+
+The grid width and height split each screen into specified rows and columns.
+
     GRID_WIDTH   = 2
     GRID_HEIGHT  = 2
 
 ## Application config
+
+These applications will be launched when certain key bindings are pressed.
 
     EDITOR       = "PyCharm"
     BROWSER      = "Google Chrome"
@@ -54,35 +61,71 @@ We'll use a 20 second alert to show debug messages, +1 for a Phoenix REPL!
 
 ## Default app layout
 
-    appFrames = 
+Here we can provide default grid positions for specific apps.
+
+    APP_FRAMES = 
+
+Chat:
+
       "HipChat": x: 0, y: 0
       "Mailbox (Beta)": x: 0, y: 0
+
+Organisation:
 
       "Calendar": x: 0, y: 1
       "Reminders": x: 0, y: 1
 
+Browsing:
+
       "Google Chrome": x: 1, y: 0, height: 2
+
+Programming:
 
       "Sublime Text": x: 2, y: 0, height: 2
       "PyCharm": x: 2, y: 0, height: 2
       "RubyMine": x: 2, y: 0, height: 2
 
-      "GitHub": x: 2, y: 1
-      "Harvest": x: 2, y: 1
+Terminal:
 
       "Terminal": x: 3, y: 0
 
+Dev support:
+
       "Dash": x: 3, y: 1
+      "GitHub": x: 3, y: 1
+      "Harvest": x: 3, y: 1
 
 ## Methods
 
-### Screen Meta
+### Multi-Screen Grid Control
+
+Phoenix unfortunately doesn't make it easy to query all screens or
+overlaying a grid across all screens, so we must be tricky.
+
+We're going to create a class which can pre-calculate the screen grid
+for one or more grid operations. The constructor loads a instance array
+with all Screen instances, sorted by their layout: left-to-right,
+top-to-bottom.
 
     class ScreenGrid
       constructor: ->
         @screens = ScreenGrid.screens()
 
+With that set, the instance provides two primary methods:
+
+* `getScreenFrame` converts a grid frame (where x, y, width and height
+  are cell indices) into absolute screen rectangle.
+
       getScreenFrame: (gridFrame) ->
+
+  First we'll find out which screen the frame is contained in and map the
+  frame to the local grid on that screen.
+
+  Let's say we have 3 screens, each having a 2x2 grid as specified with
+  GRID_WIDTH and GRID_HEIGHT, then (5,0) gets mapped to cell (1,0) on
+  screen 3. If you specify a cell outside available screens, f.ex. (7,1),
+  it will always match the left-most screen.
+
         screenIndex = Math.floor(gridFrame.x / GRID_WIDTH)
         screenIndex = 0 if (screenIndex > @screens.length)
         screen = @screens[screenIndex] || @screens[0]
@@ -94,50 +137,73 @@ We'll use a 20 second alert to show debug messages, +1 for a Phoenix REPL!
           width: gridFrame.width || 1
           height: gridFrame.height || 1
 
+  With that figured out, we can create absolute positions based on the
+  local screen frame and grid.
+
         screenRect = screen.frameWithoutDockOrMenu()
-        halfScreenWidth = screenRect.width / GRID_WIDTH
-        halfScreenHeight = screenRect.height / GRID_HEIGHT
+        cellWidth = screenRect.width / GRID_WIDTH
+        cellHeight = screenRect.height / GRID_HEIGHT
+
         newFrame =
-          x: (gridFrame.x * halfScreenWidth) + screenRect.x
-          y: (gridFrame.y * halfScreenHeight) + screenRect.y
-          width: gridFrame.width * halfScreenWidth
-          height: gridFrame.height * halfScreenHeight
+          x: (gridFrame.x * cellWidth) + screenRect.x
+          y: (gridFrame.y * cellHeight) + screenRect.y
+          width: gridFrame.width * cellWidth
+          height: gridFrame.height * cellHeight
+
+  Finally apply whitespace between cells before returning the frame.
+
         newFrame.x += MARGIN_X
         newFrame.y += MARGIN_Y
         newFrame.width -= (MARGIN_X * 2.0)
         newFrame.height -= (MARGIN_Y * 2.0)
         return newFrame
 
+* `closestGridFrame` does the opposite, provided a window frame,
+  it figures out the closest matching grid frame with varying precision.
+  If `rounded` is true (default), the method will always return a frame,
+  otherwise the window needs to be very close to grid borders.
+
       closestGridFrame: (win, rounded = true) ->
         winFrame = win.frame()
         screenRect = win.screen().frameWithoutDockOrMenu()
-        halfScreenWidth = screenRect.width / GRID_WIDTH
-        halfScreenHeight = screenRect.height / GRID_HEIGHT
+        cellWidth = screenRect.width / GRID_WIDTH
+        cellHeight = screenRect.height / GRID_HEIGHT
 
-Normally the function always return a grid frame. By changing `rounded` to
-false, it will return null unless the window frame is positioned directly on the grid.
+  If we're being precise, we perform a validation on the window frame, making
+  sure it's not more than 20 pixels away from a grid border in any direction.
 
         unless rounded
-          allowedXDelta = 20 / halfScreenWidth
-          allowedYDelta = 20 / halfScreenWidth
-          unless @isWholeNum((winFrame.x - screenRect.x) / halfScreenWidth, allowedXDelta) and
-              @isWholeNum((winFrame.y - screenRect.y) / halfScreenHeight, allowedYDelta) and
-              @isWholeNum(winFrame.width / halfScreenWidth, allowedXDelta) and
-              @isWholeNum(winFrame.height / halfScreenHeight, allowedYDelta)
+          allowedXDelta = 20 / cellWidth
+          allowedYDelta = 20 / cellHeight
+          unless @isWholeNum((winFrame.x - screenRect.x) / cellWidth, allowedXDelta) and
+              @isWholeNum((winFrame.y - screenRect.y) / cellHeight, allowedYDelta) and
+              @isWholeNum(winFrame.width / cellWidth, allowedXDelta) and
+              @isWholeNum(winFrame.height / cellHeight, allowedYDelta)
             return
 
+  Then it's just a matter of rounding the window frame to the closest grid borders.
+  All of this is done in the local screen grid.
+
         gridFrame =
-          x: Math.round((winFrame.x - screenRect.x) / halfScreenWidth)
-          y: Math.round((winFrame.y - screenRect.y) / halfScreenHeight)
-          width: Math.max(1, Math.round(winFrame.width / halfScreenWidth))
-          height: Math.max(1, Math.round(winFrame.height / halfScreenHeight))
+          x: Math.round((winFrame.x - screenRect.x) / cellWidth)
+          y: Math.round((winFrame.y - screenRect.y) / cellHeight)
+          width: Math.max(1, Math.round(winFrame.width / cellWidth))
+          height: Math.max(1, Math.round(winFrame.height / cellHeight))
+
+  Before we return, we transform the local grid frame into a global grid frame based
+  on where the screen is.
 
         screenIndex = @screens.indexOf(win.screen())
         gridFrame.x += screenIndex * GRID_WIDTH
         return gridFrame
 
+Quick helper checks if a floating point `number` is within `delta` from being
+an integer.
+
       isWholeNum: (number, delta) ->
         Math.abs(Math.round(number) - number) <= delta
+
+Let's provide static shortcuts for the instance methods for convenience.
 
       @closestGridFrame: (args...) ->
         new @().closestGridFrame(args...)
@@ -145,16 +211,26 @@ false, it will return null unless the window frame is positioned directly on the
       @getScreenFrame: (args...) ->
         new @().getScreenFrame(args...)
 
-      @screens: (win) ->
+Now here is a tricky bastard. To enumerate all the screens in Phoenix we need
+a window reference. Here we are using the currently focused window, which has
+been fine in our use cases.
+
+      @screens: ->
         # Enumerate all available screens
         firstScreen = Window.focusedWindow().screen()
+
+Then we repeatedly call `nextScreen()` and collect them into array until we've
+come full circle.
+
         curScreen = firstScreen.nextScreen()
         screens = [curScreen]
         while curScreen != firstScreen
           curScreen = curScreen.nextScreen()
           screens.push(curScreen)
 
-        # Sort screens by X position, Y position second.
+Now when we have the screens, we can do some underscore woodoo to sort them
+by their frame, first by X position, then by Y position.
+
         _.chain(screens)
           .map (screen) ->
             {x, y} = screen.frameWithoutDockOrMenu()
@@ -164,8 +240,9 @@ false, it will return null unless the window frame is positioned directly on the
           .pluck 'screen'
           .value()
 
+That's it. Remember the implicit return in Coffeescript? Sweet!
 
-### Window Grid
+### Window Grid Utilities
 
 Snap all windows to grid layout
 
@@ -175,14 +252,14 @@ Snap all windows to grid layout
         win.snapToGrid(grid)
         return
 
-Move all windows to their default application positions.
+Moves all windows to their default application positions.
 
     moveAllToDefault = ->
       grid = new ScreenGrid()
       Window.visibleWindows().map (win) ->
         return unless win.isNormalWindow()
 
-        if frame = appFrames[win.app().title()]
+        if frame = APP_FRAMES[win.app().title()]
           win.setFrame(grid.getScreenFrame(frame))
         return
 
@@ -209,10 +286,10 @@ Temporary storage for frames
 Set a window to full screen
 
     Window::toFullScreen = ->
-      fullFrame = @calculateGrid(0, 0, 1, 1)
+      fullFrame = @screen().frameWithoutDockOrMenu()
       unless _.isEqual(@frame(), fullFrame)
         @rememberFrame()
-        @toCell 0, 0, 1, 1
+        @setFrame fullFrame
       else if lastFrames[this]
         @setFrame lastFrames[this]
         @forgetFrame()
@@ -222,25 +299,47 @@ Remember and forget frames
     Window::rememberFrame = -> lastFrames[this] = @frame()
     Window::forgetFrame = -> delete lastFrames[this]
 
-Move the current window to a grid cell
+Move the focused window to a specific grid cell. If it already fits
+that cell, then we'll make it cover the screen vertically.
 
     toCell = (x, y) ->
       win = Window.focusedWindow()
       screenGrid = new ScreenGrid()
+
+Let's check if the window already fits the grid and specified cell,
+then just tweak the height.
+
       frame = screenGrid.closestGridFrame(win, false)
       if frame and frame.x == x and frame.y == y
         frame.height = if frame.height != 1 then 1 else GRID_HEIGHT
         frame.y = 0 if frame.height == GRID_HEIGHT
         win.setFrame(screenGrid.getScreenFrame(frame))
+
+Otherwise move it into position.
+
       else
         win.setFrame(screenGrid.getScreenFrame(x: x, y: y))
 
+### Focus windows
+
+Method to cycle focus by grid cell.
+
     focusGrid = (x, y) ->
       screenGrid = new ScreenGrid()
+
+Find all windows that cover the specified cell pretty accurately, sorted
+so the most recent window is first.
+
       windows = Window.visibleWindowsMostRecentFirst()
       windows = windows.filter (win) ->
         frame = screenGrid.closestGridFrame(win, false)
         frame && coversCell(frame, x, y)
+
+If any window in the cell doesn't have focus, we'll select the top-most window,
+otherwise we'll select the bottom-most window. 
+
+By selecting the window on the bottom, we make sure that by repeatedly calling
+this method, all windows in the cell will cycle focus.
 
       isCellFocused = _.map(windows, (w) -> w.info()).indexOf(Window.focusedWindow().info()) > -1
 
@@ -248,6 +347,8 @@ Move the current window to a grid cell
         windows[windows.length - 1].focusWindow()
       else if windows.length
         windows[0].focusWindow()
+
+Utility which returns true if `x` and `y` are covered by the `frame`.
 
     coversCell = (frame, x, y) ->
       frameRight = frame.x + frame.width
