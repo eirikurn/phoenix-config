@@ -13,7 +13,7 @@ a lightweight scriptable OS X window manager.
 Install Phoenix.app, then copy the `build/.phoenix.js` file into your
 home folder for use with Phoenix.app.
 
-There is also a gulp script which can build and install the config as 
+There is also a gulp script which can build and install the config as
 well as watch for changes during development.
 
 ```shell
@@ -29,14 +29,14 @@ node_modules/.bin/gulp
 
 ## Debugging helpers
 
-We'll use a 20 second alert to show debug messages, +1 for a Phoenix REPL!
+We'll use the console to show debug messages.
 
     debug = (message)->
-      api.alert message, 10
+      Phoenix.log message
 
 ## Basic Settings
 
-Margin X and Y are to apply whitespace between window cells. 
+Margin X and Y are to apply whitespace between window cells.
 
     MARGIN_X     = 0
     MARGIN_Y     = 0
@@ -61,17 +61,20 @@ These applications will be launched when certain key bindings are pressed.
 
 Here we can provide default grid positions for specific apps.
 
-    APP_FRAMES = 
+    APP_FRAMES =
 
 Chat:
 
-      "HipChat": x: 0, y: 0
-      "Mailbox (Beta)": x: 0, y: 0
+      "Slack": x: 0, y: 0
+      "Messages": x: 0, y: 0
 
 Organisation:
 
       "Calendar": x: 0, y: 1
       "Reminders": x: 0, y: 1
+      "Wunderlist": x: 0, y: 1
+      "Notes": x: 0, y: 1
+      "Spotify": x: 0, y: 1
 
 Browsing:
 
@@ -80,17 +83,21 @@ Browsing:
 Programming:
 
       "Sublime Text": x: 2, y: 0, height: 2
+      "Atom": x: 2, y: 0, height: 2
       "PyCharm": x: 2, y: 0, height: 2
       "RubyMine": x: 2, y: 0, height: 2
+      "IntelliJ IDEA": x: 2, y: 0, height: 2
 
 Terminal:
 
       "Terminal": x: 3, y: 0
+      "iTerm2": x: 3, y: 0
 
 Dev support:
 
       "Dash": x: 3, y: 1
       "GitHub": x: 3, y: 1
+      "GitUp": x: 3, y: 1
       "Harvest": x: 3, y: 1
 
 ## Methods
@@ -138,7 +145,7 @@ With that set, the instance provides two primary methods:
   With that figured out, we can create absolute positions based on the
   local screen frame and grid.
 
-        screenRect = screen.frameWithoutDockOrMenu()
+        screenRect = screen.flippedVisibleFrame()
         cellWidth = screenRect.width / GRID_WIDTH
         cellHeight = screenRect.height / GRID_HEIGHT
 
@@ -163,7 +170,7 @@ With that set, the instance provides two primary methods:
 
       closestGridFrame: (win, rounded = true) ->
         winFrame = win.frame()
-        screenRect = win.screen().frameWithoutDockOrMenu()
+        screenRect = win.screen().flippedVisibleFrame()
         cellWidth = screenRect.width / GRID_WIDTH
         cellHeight = screenRect.height / GRID_HEIGHT
 
@@ -214,24 +221,14 @@ a window reference. Here we are using the currently focused window, which has
 been fine in our use cases.
 
       @screens: ->
+
+We do some underscore woodoo to sort them by their frame, first by X position,
+then by Y position.
+
         # Enumerate all available screens
-        firstScreen = Window.focusedWindow().screen()
-
-Then we repeatedly call `nextScreen()` and collect them into array until we've
-come full circle.
-
-        curScreen = firstScreen.nextScreen()
-        screens = [curScreen]
-        while curScreen != firstScreen
-          curScreen = curScreen.nextScreen()
-          screens.push(curScreen)
-
-Now when we have the screens, we can do some underscore woodoo to sort them
-by their frame, first by X position, then by Y position.
-
-        _.chain(screens)
+        _.chain(Screen.all())
           .map (screen) ->
-            {x, y} = screen.frameWithoutDockOrMenu()
+            {x, y} = screen.flippedVisibleFrame()
             {x, y, screen}
           .sortBy 'y'
           .sortBy 'x'
@@ -246,7 +243,7 @@ Snap all windows to grid layout
 
     snapAllToGrid = ->
       grid = new ScreenGrid()
-      Window.visibleWindows().map (win) ->
+      Window.all(visible: true).map (win) ->
         win.snapToGrid(grid)
         return
 
@@ -254,17 +251,18 @@ Moves all windows to their default application positions.
 
     moveAllToDefault = ->
       grid = new ScreenGrid()
-      Window.visibleWindows().map (win) ->
-        return unless win.isNormalWindow()
+      Window.all(visible: true).map (win) ->
+        return unless win.isNormal()
+        Phoenix.log("#{win.app().name()}")
 
-        if frame = APP_FRAMES[win.app().title()]
+        if frame = APP_FRAMES[win.app().name()]
           win.setFrame(grid.getScreenFrame(frame))
         return
 
 Snap the current window to the grid
 
     Window::snapToGrid = (grid = ScreenGrid) ->
-      return unless @isNormalWindow()
+      return unless @isNormal()
 
       frame = grid.closestGridFrame(win)
       @setFrame grid.getScreenFrame(frame)
@@ -284,7 +282,7 @@ Temporary storage for frames
 Set a window to full screen
 
     Window::toFullScreen = ->
-      fullFrame = @screen().frameWithoutDockOrMenu()
+      fullFrame = @screen().flippedVisibleFrame()
       unless _.isEqual(@frame(), fullFrame)
         @rememberFrame()
         @setFrame fullFrame
@@ -301,7 +299,7 @@ Move the focused window to a specific grid cell. If it already fits
 that cell, then we'll make it cover the screen vertically.
 
     toCell = (x, y) ->
-      win = Window.focusedWindow()
+      win = Window.focused()
       screenGrid = new ScreenGrid()
 
 Let's check if the window already fits the grid and specified cell,
@@ -328,23 +326,24 @@ Method to cycle focus by grid cell.
 Find all windows that cover the specified cell pretty accurately, sorted
 so the most recent window is first.
 
-      windows = Window.visibleWindowsMostRecentFirst()
+      windows = Window.recent()
       windows = windows.filter (win) ->
         frame = screenGrid.closestGridFrame(win, false)
         frame && coversCell(frame, x, y)
 
 If any window in the cell doesn't have focus, we'll select the top-most window,
-otherwise we'll select the bottom-most window. 
+otherwise we'll select the bottom-most window.
 
 By selecting the window on the bottom, we make sure that by repeatedly calling
 this method, all windows in the cell will cycle focus.
 
-      isCellFocused = _.map(windows, (w) -> w.info()).indexOf(Window.focusedWindow().info()) > -1
+      focusedWindow = Window.focused()
+      isCellFocused = _.find(windows, (w) -> w.equalTo(focusedWindow))
 
       if isCellFocused
-        windows[windows.length - 1].focusWindow()
+        windows[windows.length - 1].focus()
       else if windows.length
-        windows[0].focusWindow()
+        windows[0].focus()
 
 Utility which returns true if `x` and `y` are covered by the `frame`.
 
@@ -357,61 +356,38 @@ Utility which returns true if `x` and `y` are covered by the `frame`.
 
 Select the first window for an app
 
-    App::firstWindow = -> @visibleWindows()[0]
-
-Find an app by it's `title`
-
-    App.byTitle = (title) ->
-      apps = @runningApps()
-      i = 0
-      while i < apps.length
-        app = apps[i]
-        if app.title() is title
-          app.show()
-          return app
-        i++
-      return
-
-Find all apps with `title`
-
-    App.allWithTitle = (title) ->
-      _(@runningApps()).filter (app) ->
-        true  if app.title() is title
+    App::firstWindow = -> @windows(visible: true)[0]
 
 Focus or start an app with `title`
 
     App.focusOrStart = (title) ->
-      apps = App.allWithTitle(title)
-      if _.isEmpty(apps)
-        api.alert "Attempting to start #{title}"
-        api.launch title
+      app = App.get(title)
+      if !app
+        Phoenix.log "Attempting to start #{title}"
+        App.launch title
         return
 
-      windows = _.chain(apps)
-      .map (x) ->
-        x.allWindows()
-      .flatten()
-      .value()
+      windows = app.windows()
 
       activeWindows = _(windows)
       .reject (win) ->
-        win.isWindowMinimized()
+        win.isMinimized()
 
       if _.isEmpty(activeWindows)
-        api.launch title
+        App.launch title
 
       activeWindows.forEach (win) ->
-        win.focusWindow()
+        win.focus()
         return
       return
 
 ### Binding alias
 
-Alias `api.bind` as `key_binding`, to make the binding table extra
+Alias `Key.on` as `key_binding`, to make the binding table extra
 readable.
 
     key_binding = (key, modifier, fn)->
-      api.bind key, modifier, fn
+      Key.on key, modifier, fn
 
 ## Bindings
 
@@ -424,7 +400,7 @@ Mash is **Cmd** + **Alt/Opt** + **Ctrl** pressed together.
 
 Maximize the current window
 
-    key_binding 'space',     mash, -> Window.focusedWindow().toFullScreen()
+    key_binding 'space',     mash, -> Window.focused().toFullScreen()
 
 Switch to or lauch apps, as defined in the [Application config](#application-config)
 

@@ -1,8 +1,8 @@
 var APP_FRAMES, BROWSER, EDITOR, FINDER, GRID_HEIGHT, GRID_WIDTH, MARGIN_X, MARGIN_Y, MUSIC, ScreenGrid, TERMINAL, VIDEO, coversCell, debug, focusGrid, hardMash, key_binding, lastFrames, mash, moveAllToDefault, snapAllToGrid, toCell,
-  __slice = [].slice;
+  slice = [].slice;
 
 debug = function(message) {
-  return api.alert(message, 10);
+  return Phoenix.log(message);
 };
 
 MARGIN_X = 0;
@@ -26,11 +26,11 @@ MUSIC = "Spotify";
 VIDEO = "Plex Home Theater";
 
 APP_FRAMES = {
-  "HipChat": {
+  "Slack": {
     x: 0,
     y: 0
   },
-  "Mailbox (Beta)": {
+  "Messages": {
     x: 0,
     y: 0
   },
@@ -42,12 +42,29 @@ APP_FRAMES = {
     x: 0,
     y: 1
   },
+  "Wunderlist": {
+    x: 0,
+    y: 1
+  },
+  "Notes": {
+    x: 0,
+    y: 1
+  },
+  "Spotify": {
+    x: 0,
+    y: 1
+  },
   "Google Chrome": {
     x: 1,
     y: 0,
     height: 2
   },
   "Sublime Text": {
+    x: 2,
+    y: 0,
+    height: 2
+  },
+  "Atom": {
     x: 2,
     y: 0,
     height: 2
@@ -62,7 +79,16 @@ APP_FRAMES = {
     y: 0,
     height: 2
   },
+  "IntelliJ IDEA": {
+    x: 2,
+    y: 0,
+    height: 2
+  },
   "Terminal": {
+    x: 3,
+    y: 0
+  },
+  "iTerm2": {
     x: 3,
     y: 0
   },
@@ -71,6 +97,10 @@ APP_FRAMES = {
     y: 1
   },
   "GitHub": {
+    x: 3,
+    y: 1
+  },
+  "GitUp": {
     x: 3,
     y: 1
   },
@@ -98,7 +128,7 @@ ScreenGrid = (function() {
       width: gridFrame.width || 1,
       height: gridFrame.height || 1
     };
-    screenRect = screen.frameWithoutDockOrMenu();
+    screenRect = screen.flippedVisibleFrame();
     cellWidth = screenRect.width / GRID_WIDTH;
     cellHeight = screenRect.height / GRID_HEIGHT;
     newFrame = {
@@ -120,7 +150,7 @@ ScreenGrid = (function() {
       rounded = true;
     }
     winFrame = win.frame();
-    screenRect = win.screen().frameWithoutDockOrMenu();
+    screenRect = win.screen().flippedVisibleFrame();
     cellWidth = screenRect.width / GRID_WIDTH;
     cellHeight = screenRect.height / GRID_HEIGHT;
     if (!rounded) {
@@ -146,29 +176,21 @@ ScreenGrid = (function() {
   };
 
   ScreenGrid.closestGridFrame = function() {
-    var args, _ref;
-    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-    return (_ref = new this()).closestGridFrame.apply(_ref, args);
+    var args, ref;
+    args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+    return (ref = new this()).closestGridFrame.apply(ref, args);
   };
 
   ScreenGrid.getScreenFrame = function() {
-    var args, _ref;
-    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-    return (_ref = new this()).getScreenFrame.apply(_ref, args);
+    var args, ref;
+    args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+    return (ref = new this()).getScreenFrame.apply(ref, args);
   };
 
   ScreenGrid.screens = function() {
-    var curScreen, firstScreen, screens;
-    firstScreen = Window.focusedWindow().screen();
-    curScreen = firstScreen.nextScreen();
-    screens = [curScreen];
-    while (curScreen !== firstScreen) {
-      curScreen = curScreen.nextScreen();
-      screens.push(curScreen);
-    }
-    return _.chain(screens).map(function(screen) {
-      var x, y, _ref;
-      _ref = screen.frameWithoutDockOrMenu(), x = _ref.x, y = _ref.y;
+    return _.chain(Screen.all()).map(function(screen) {
+      var ref, x, y;
+      ref = screen.flippedVisibleFrame(), x = ref.x, y = ref.y;
       return {
         x: x,
         y: y,
@@ -184,7 +206,9 @@ ScreenGrid = (function() {
 snapAllToGrid = function() {
   var grid;
   grid = new ScreenGrid();
-  return Window.visibleWindows().map(function(win) {
+  return Window.all({
+    visible: true
+  }).map(function(win) {
     win.snapToGrid(grid);
   });
 };
@@ -192,12 +216,15 @@ snapAllToGrid = function() {
 moveAllToDefault = function() {
   var grid;
   grid = new ScreenGrid();
-  return Window.visibleWindows().map(function(win) {
+  return Window.all({
+    visible: true
+  }).map(function(win) {
     var frame;
-    if (!win.isNormalWindow()) {
+    if (!win.isNormal()) {
       return;
     }
-    if (frame = APP_FRAMES[win.app().title()]) {
+    Phoenix.log("" + (win.app().name()));
+    if (frame = APP_FRAMES[win.app().name()]) {
       win.setFrame(grid.getScreenFrame(frame));
     }
   });
@@ -208,7 +235,7 @@ Window.prototype.snapToGrid = function(grid) {
   if (grid == null) {
     grid = ScreenGrid;
   }
-  if (!this.isNormalWindow()) {
+  if (!this.isNormal()) {
     return;
   }
   frame = grid.closestGridFrame(win);
@@ -225,7 +252,7 @@ lastFrames = {};
 
 Window.prototype.toFullScreen = function() {
   var fullFrame;
-  fullFrame = this.screen().frameWithoutDockOrMenu();
+  fullFrame = this.screen().flippedVisibleFrame();
   if (!_.isEqual(this.frame(), fullFrame)) {
     this.rememberFrame();
     return this.setFrame(fullFrame);
@@ -245,7 +272,7 @@ Window.prototype.forgetFrame = function() {
 
 toCell = function(x, y) {
   var frame, screenGrid, win;
-  win = Window.focusedWindow();
+  win = Window.focused();
   screenGrid = new ScreenGrid();
   frame = screenGrid.closestGridFrame(win, false);
   if (frame && frame.x === x && frame.y === y) {
@@ -263,21 +290,22 @@ toCell = function(x, y) {
 };
 
 focusGrid = function(x, y) {
-  var isCellFocused, screenGrid, windows;
+  var focusedWindow, isCellFocused, screenGrid, windows;
   screenGrid = new ScreenGrid();
-  windows = Window.visibleWindowsMostRecentFirst();
+  windows = Window.recent();
   windows = windows.filter(function(win) {
     var frame;
     frame = screenGrid.closestGridFrame(win, false);
     return frame && coversCell(frame, x, y);
   });
-  isCellFocused = _.map(windows, function(w) {
-    return w.info();
-  }).indexOf(Window.focusedWindow().info()) > -1;
+  focusedWindow = Window.focused();
+  isCellFocused = _.find(windows, function(w) {
+    return w.equalTo(focusedWindow);
+  });
   if (isCellFocused) {
-    return windows[windows.length - 1].focusWindow();
+    return windows[windows.length - 1].focus();
   } else if (windows.length) {
-    return windows[0].focusWindow();
+    return windows[0].focus();
   }
 };
 
@@ -289,55 +317,33 @@ coversCell = function(frame, x, y) {
 };
 
 App.prototype.firstWindow = function() {
-  return this.visibleWindows()[0];
-};
-
-App.byTitle = function(title) {
-  var app, apps, i;
-  apps = this.runningApps();
-  i = 0;
-  while (i < apps.length) {
-    app = apps[i];
-    if (app.title() === title) {
-      app.show();
-      return app;
-    }
-    i++;
-  }
-};
-
-App.allWithTitle = function(title) {
-  return _(this.runningApps()).filter(function(app) {
-    if (app.title() === title) {
-      return true;
-    }
-  });
+  return this.windows({
+    visible: true
+  })[0];
 };
 
 App.focusOrStart = function(title) {
-  var activeWindows, apps, windows;
-  apps = App.allWithTitle(title);
-  if (_.isEmpty(apps)) {
-    api.alert("Attempting to start " + title);
-    api.launch(title);
+  var activeWindows, app, windows;
+  app = App.get(title);
+  if (!app) {
+    Phoenix.log("Attempting to start " + title);
+    App.launch(title);
     return;
   }
-  windows = _.chain(apps).map(function(x) {
-    return x.allWindows();
-  }).flatten().value();
+  windows = app.windows();
   activeWindows = _(windows).reject(function(win) {
-    return win.isWindowMinimized();
+    return win.isMinimized();
   });
   if (_.isEmpty(activeWindows)) {
-    api.launch(title);
+    App.launch(title);
   }
   activeWindows.forEach(function(win) {
-    win.focusWindow();
+    win.focus();
   });
 };
 
 key_binding = function(key, modifier, fn) {
-  return api.bind(key, modifier, fn);
+  return Key.on(key, modifier, fn);
 };
 
 mash = 'cmd+alt+ctrl'.split('+');
@@ -345,7 +351,7 @@ mash = 'cmd+alt+ctrl'.split('+');
 hardMash = 'shift+cmd+alt+ctrl'.split('+');
 
 key_binding('space', mash, function() {
-  return Window.focusedWindow().toFullScreen();
+  return Window.focused().toFullScreen();
 });
 
 key_binding('0', mash, function() {
