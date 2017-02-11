@@ -196,7 +196,7 @@ ScreenGrid = (function() {
         y: y,
         screen: screen
       };
-    }).sortBy('y').sortBy('x').pluck('screen').value();
+    }).sortBy(['x', 'y']).map('screen').value();
   };
 
   return ScreenGrid;

@@ -230,9 +230,8 @@ then by Y position.
           .map (screen) ->
             {x, y} = screen.flippedVisibleFrame()
             {x, y, screen}
-          .sortBy 'y'
-          .sortBy 'x'
-          .pluck 'screen'
+          .sortBy ['x', 'y']
+          .map 'screen'
           .value()
 
 That's it. Remember the implicit return in Coffeescript? Sweet!
